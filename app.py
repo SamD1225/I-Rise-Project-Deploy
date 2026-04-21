@@ -2,37 +2,88 @@ import streamlit as st
 import pickle
 import numpy as np
 
-# Load the trained model
+# Page configuration
+st.set_page_config(page_title="HealthCheck Predictor", page_icon="🩺", layout="wide")
+
+# Custom CSS for centering and styling
+st.markdown("""
+    <style>
+    .block-container {
+        max-width: 800px;
+        padding-top: 2rem;
+    }
+    h1, h3, p {
+        text-align: center;
+    }
+    div.stButton > button:first-child {
+        display: block;
+        margin: 0 auto;
+        background-color: #4CAF50;
+        color: white;
+        width: 100%;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Load the model
 with open('model.pkl', 'rb') as f:
     model = pickle.load(f)
 
-st.title("Diabetes Prediction App")
-st.write("Enter the following details to predict the likelihood of diabetes:")
+# Header
+st.title("🩺 Diabetes Risk Assessment")
+st.write("Complete the health profile below to see your prediction.")
 
-# Create input fields for the 8 features required by the model
-col1, col2 = st.columns(2)
+# Centering using columns
+empty_l, col, empty_r = st.columns([1, 3, 1])
 
-with col1:
-    pregnancies = st.number_input("Pregnancies", min_value=0, step=1)
-    glucose = st.number_input("Glucose", min_value=0)
-    blood_pressure = st.number_input("Blood Pressure", min_value=0)
-    skin_thickness = st.number_input("Skin Thickness", min_value=0)
+with col:
+    with st.container():
+        # 1. Pregnancies (Categorical Selection)
+        preg_label = st.select_slider(
+            "Number of Pregnancies",
+            options=["None", "1-2", "3-5", "6-9", "10+"]
+        )
+        # Map labels back to numeric averages/values for the model
+        preg_map = {"None": 0, "1-2": 2, "3-5": 4, "6-9": 7, "10+": 12}
+        pregnancies = preg_map[preg_label]
 
-with col2:
-    insulin = st.number_input("Insulin", min_value=0)
-    bmi = st.number_input("BMI", min_value=0.0, format="%.1f")
-    dpf = st.number_input("Diabetes Pedigree Function", min_value=0.0, format="%.3f")
-    age = st.number_input("Age", min_value=0, step=1)
+        # 2. Glucose (Categorical)
+        gluc_label = st.selectbox(
+            "Glucose Level",
+            options=["Normal (Under 100)", "Prediabetes (100-125)", "High (126+)"]
+        )
+        gluc_map = {"Normal (Under 100)": 90, "Prediabetes (100-125)": 115, "High (126+)": 150}
+        glucose = gluc_map[gluc_label]
 
-# Prediction logic
-if st.button("Predict"):
-    # Arrange features into the required format (2D array)
-    features = np.array([[pregnancies, glucose, blood_pressure, skin_thickness, 
-                          insulin, bmi, dpf, age]])
+        # 3. Blood Pressure (Categorical)
+        bp_label = st.selectbox(
+            "Blood Pressure Range",
+            options=["Low (Under 60)", "Normal (60-80)", "High (80-90)", "Very High (90+)"]
+        )
+        bp_map = {"Low (Under 60)": 50, "Normal (60-80)": 70, "High (80-90)": 85, "Very High (90+)": 100}
+        blood_pressure = bp_map[bp_label]
+
+        # Remaining inputs using sliders for a better UI than text boxes
+        skin_thickness = st.slider("Skin Thickness (mm)", 0, 99, 20)
+        insulin = st.slider("Insulin Level (mu U/ml)", 0, 846, 79)
+        bmi = st.slider("BMI (Body Mass Index)", 0.0, 67.1, 32.0)
+        dpf = st.slider("Diabetes Pedigree Function", 0.0, 2.4, 0.5)
+        age = st.slider("Age", 21, 81, 33)
+
+    st.markdown("---")
     
-    prediction = model.predict(features)
-    
-    if prediction[0] == 1:
-        st.error("The model predicts a high likelihood of diabetes.")
-    else:
-        st.success("The model predicts a low likelihood of diabetes.")
+    # Prediction Button
+    if st.button("Generate Prediction"):
+        # Arrange features for the model
+        features = np.array([[pregnancies, glucose, blood_pressure, skin_thickness, 
+                              insulin, bmi, dpf, age]])
+        
+        prediction = model.predict(features)
+        
+        # Centered Results Display
+        if prediction[0] == 1:
+            st.error("### ⚠️ High Risk Detected")
+            st.write("Based on the data provided, the model suggests a higher likelihood of diabetes. Please consult a doctor for a formal diagnosis.")
+        else:
+            st.success("### ✅ Low Risk Detected")
+            st.write("The model suggests a low likelihood of diabetes. Maintain your healthy habits!")
